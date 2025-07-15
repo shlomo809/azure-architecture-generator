@@ -1,0 +1,64 @@
+version: "3.9"
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+    container_name: azure_frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+
+    depends_on:
+      - backend
+  mongodb:
+    image: mongo:6
+    container_name: azure_mongo
+    restart: always
+    ports:
+      - "27809:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: azure_rabbitmq
+    restart: always
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+
+  azure_scraper:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: azure_scraper
+    env_file:
+      - .env
+    depends_on:
+      - mongodb
+      - rabbitmq
+    volumes:
+      - .:/app
+    command: python3 backend/scraper_service.py
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: azure_backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      - mongodb
+      - rabbitmq
+    command: uvicorn server:app --host 0.0.0.0 --port 8000
+
+volumes:
+  mongo_data:
